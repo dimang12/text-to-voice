@@ -1,0 +1,162 @@
+{
+  "app": {
+    "name": "Voice Studio",
+    "workspace": "{name}'s workspace"
+  },
+  "nav": {
+    "history": "History",
+    "bookmarks": "Bookmarked clips",
+    "voices": "Voice library",
+    "settings": "Settings",
+    "apiKeys": "API keys",
+    "quickLinks": "Quick links",
+    "signOut": "Sign out",
+    "scripts": "Saved scripts"
+  },
+  "stats": {
+    "generations": "Generations",
+    "audioMade": "Audio made",
+    "voices": "Voices",
+    "presets": "Presets",
+    "charsThisMonth": "Characters this month",
+    "scripts": "Scripts"
+  },
+  "topbar": {
+    "search": "Search clips, scripts and voices",
+    "toggleSidebar": "Toggle sidebar",
+    "toggleTheme": "Toggle light or dark theme",
+    "language": "Language"
+  },
+  "tabs": {
+    "studio": "Studio",
+    "history": "History",
+    "voices": "Voices",
+    "bookmarked": "Bookmarked",
+    "scripts": "Scripts"
+  },
+  "studio": {
+    "placeholder": "Type or paste the text you want to hear. Long scripts are split on sentence breaks and stitched into one file.",
+    "insertPause": "Insert pause",
+    "clear": "Clear",
+    "loadSample": "Load sample",
+    "sample": "Good morning. Here is the Monday summary. Two apps shipped over the weekend: Map App version thirty, which adds clustered markers, and the object creator node, which now validates column names before saving. One issue is still open: the ETL transformation step fails when a source column is renamed mid-run. The fix is in review and should land by Wednesday.",
+    "chars": "chars",
+    "audio": "audio",
+    "request": "{count, plural, one {# request} other {# requests}}",
+    "voice": "Voice",
+    "voiceHint": "Click a face to choose it · the corner badge plays a short sample",
+    "style": "Style",
+    "styleHint": "Works with gpt-4o-mini-tts only",
+    "instructions": "Instructions",
+    "instructionsPlaceholder": "Describe the tone, pace and character of the voice",
+    "savePreset": "Save as preset",
+    "presetName": "Preset name",
+    "model": "Model",
+    "modelSteerable": "steerable",
+    "modelFast": "fastest",
+    "modelHd": "high fidelity",
+    "format": "Format",
+    "speed": "Speed",
+    "download": "Download",
+    "generate": "Generate",
+    "generating": "Generating…",
+    "nothingYet": "Nothing generated yet",
+    "tooLong": "Text is over the {max} character limit",
+    "longNeedsMp3": "Text longer than {max} characters is only supported in MP3",
+    "failed": "Speech generation failed. Try again.",
+    "saveScript": "Save script",
+    "saveChanges": "Save changes",
+    "saveAsNew": "Save as new",
+    "scriptTitle": "Script title",
+    "saved": "Saved",
+    "editing": "Editing",
+    "modelMms": "self-hosted Khmer",
+    "styleMms": "The Khmer engine has one voice and no style control"
+  },
+  "presets": {
+    "narrator": "Narrator",
+    "narratorText": "Calm and clear, like a helpful product narrator.",
+    "bedtime": "Bedtime story",
+    "bedtimeText": "Warm, slow and soft, like reading a bedtime story.",
+    "radio": "Radio host",
+    "radioText": "Energetic and upbeat, like a radio host introducing a show.",
+    "news": "News anchor",
+    "newsText": "Serious and measured, like a news anchor reading headlines.",
+    "casual": "Casual",
+    "casualText": "Friendly and casual, like explaining something to a colleague.",
+    "whisper": "Whisper",
+    "whisperText": "Whispered and intimate, close to the microphone."
+  },
+  "voices": {
+    "alloy": "Neutral, balanced",
+    "ash": "Warm, confident",
+    "ballad": "Soft, expressive",
+    "coral": "Bright, friendly",
+    "echo": "Clear, direct",
+    "fable": "Storyteller",
+    "onyx": "Deep, authoritative",
+    "nova": "Energetic",
+    "sage": "Calm, measured",
+    "shimmer": "Light, upbeat",
+    "verse": "Versatile",
+    "marin": "Conversational",
+    "cedar": "Grounded",
+    "preview": "Preview {voice}",
+    "previewText": "Hello! This is a short sample of my voice.",
+    "sokha": "Khmer · self-hosted"
+  },
+  "history": {
+    "title": "Recent generations",
+    "kept": "Kept for 30 days",
+    "script": "Script",
+    "voice": "Voice",
+    "model": "Model",
+    "length": "Length",
+    "size": "Size",
+    "created": "Created",
+    "empty": "No generations yet. Write something in the Studio and press Generate.",
+    "play": "Play",
+    "bookmark": "Bookmark",
+    "unbookmark": "Remove bookmark",
+    "delete": "Delete",
+    "confirmDelete": "Delete this clip? This cannot be undone."
+  },
+  "voicesPage": {
+    "title": "Voice library",
+    "hint": "13 built-in voices · custom voices coming later"
+  },
+  "bookmarks": {
+    "title": "Bookmarked clips",
+    "empty": "No bookmarked clips yet. Star a clip in History to keep it here."
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "displayName": "Display name",
+    "continueGoogle": "Continue with Google",
+    "or": "or",
+    "noAccount": "No account yet?",
+    "haveAccount": "Already have an account?",
+    "checkEmail": "Check your inbox for a confirmation link, then sign in.",
+    "tagline": "Turn any script into natural speech in English or Khmer.",
+    "invalid": "Email or password is incorrect."
+  },
+  "setup": {
+    "title": "Connect Supabase to continue",
+    "body": "Create a free project at supabase.com, run the migration in supabase/migrations, then add these to .env.local and restart the dev server."
+  },
+  "scripts": {
+    "title": "Saved scripts",
+    "hint": "Open a script to load it into the Studio with its voice settings",
+    "empty": "No saved scripts yet. Write something in the Studio and press Save script.",
+    "open": "Open",
+    "delete": "Delete",
+    "confirmDelete": "Delete this script? This cannot be undone.",
+    "updated": "Updated",
+    "script": "Script",
+    "voice": "Voice",
+    "length": "Length"
+  }
+}

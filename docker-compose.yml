@@ -1,0 +1,32 @@
+# Runs the Next.js app in a container. Supabase runs separately:
+#   - locally:  npm run db:start   (Supabase CLI, Docker)
+#   - on AWS:   self-hosted Supabase compose or a hosted project
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    image: voice-studio:latest
+    ports:
+      - "3000:3000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      MMS_TTS_URL: http://tts-mms:8000
+    depends_on:
+      tts-mms:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Self-hosted Khmer TTS (Meta MMS, CC BY-NC 4.0: non-commercial use only).
+  tts-mms:
+    build: ./services/tts-mms
+    image: voice-studio-mms:latest
+    ports:
+      - "8020:8000"
+    restart: unless-stopped
