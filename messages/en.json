@@ -149,7 +149,9 @@
     "haveAccount": "Already have an account?",
     "checkEmail": "Check your inbox for a confirmation link, then sign in.",
     "tagline": "Turn any script into natural speech in English or Khmer.",
-    "invalid": "Email or password is incorrect."
+    "invalid": "Email or password is incorrect.",
+    "oauthUnavailable": "Google sign-in is not available right now. Use email and password instead.",
+    "oauthFailed": "Google sign-in did not complete. Please try again."
   },
   "setup": {
     "title": "Connect Supabase to continue",

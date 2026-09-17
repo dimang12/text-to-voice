@@ -5,9 +5,9 @@ import { useActionState } from "react";
 import { useTranslations } from "next-intl";
 import { signIn, signInWithGoogle, signUp, type AuthState } from "@/app/(auth)/actions";
 
-type Props = { mode: "signin" | "signup"; next: string };
+type Props = { mode: "signin" | "signup"; next: string; urlError?: string };
 
-export function AuthForm({ mode, next }: Props) {
+export function AuthForm({ mode, next, urlError }: Props) {
   const t = useTranslations("auth");
   const action = mode === "signin" ? signIn : signUp;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, {});
@@ -22,6 +22,8 @@ export function AuthForm({ mode, next }: Props) {
         </div>
       </div>
       <h1>{mode === "signin" ? t("signIn") : t("signUp")}</h1>
+
+      {urlError && <div className="alert">{urlError === "oauth" ? t("oauthUnavailable") : t("oauthFailed")}</div>}
 
       <form action={signInWithGoogle}>
         <button className="btn block" type="submit">

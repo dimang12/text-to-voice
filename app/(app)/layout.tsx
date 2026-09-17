@@ -19,7 +19,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     dashboardStats(supabase),
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
   ]);
-  const name = (profile?.display_name as string | null) || user.user_metadata?.display_name || user.email?.split("@")[0] || "";
+  const meta = user.user_metadata ?? {};
+  const name = (profile?.display_name as string | null) || meta.display_name || meta.full_name || meta.name || user.email?.split("@")[0] || "";
 
   return (
     <AppShell

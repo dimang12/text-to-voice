@@ -8,6 +8,19 @@ export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
   if (!hasSupabaseEnv()) return response;
 
+  // An OAuth or email-link code can land on any page when the provider falls back to the site URL.
+  // Hand it to the callback route so the sign-in still completes.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && !request.nextUrl.pathname.startsWith("/auth/callback")) {
+    const callback = request.nextUrl.clone();
+    const next = request.nextUrl.searchParams.get("next") ?? "/";
+    callback.pathname = "/auth/callback";
+    callback.search = "";
+    callback.searchParams.set("code", code);
+    callback.searchParams.set("next", next.startsWith("/") ? next : "/");
+    return NextResponse.redirect(callback);
+  }
+
   const { url, key } = supabaseEnv();
   const supabase = createServerClient(url, key, {
     cookies: {
