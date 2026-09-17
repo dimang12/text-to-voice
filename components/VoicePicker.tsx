@@ -4,17 +4,14 @@ import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/Avatar";
 import { PauseIcon, PlayIcon } from "@/components/Icons";
-import { voicesFor, type Model, type Voice } from "@/lib/tts";
+import type { VoiceSpec } from "@/lib/engines/types";
 
-type Props = { value: Voice; model: Model; onChange: (v: Voice) => void };
+type Props = { engine: string; voices: VoiceSpec[]; value: string; onChange: (v: string) => void };
 
-const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
-
-export function VoicePicker({ value, model, onChange }: Props) {
-  const voices = voicesFor(model);
+export function VoicePicker({ engine, voices, value, onChange }: Props) {
   const t = useTranslations("voices");
-  const [busy, setBusy] = useState<Voice | null>(null);
-  const [playing, setPlaying] = useState<Voice | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   function stop() {
@@ -23,7 +20,7 @@ export function VoicePicker({ value, model, onChange }: Props) {
     setPlaying(null);
   }
 
-  async function preview(voice: Voice) {
+  async function preview(voice: string) {
     if (playing === voice) { stop(); return; }
     if (busy) return;
     stop();
@@ -32,7 +29,7 @@ export function VoicePicker({ value, model, onChange }: Props) {
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preview: true, voice, text: t("previewText") }),
+        body: JSON.stringify({ preview: true, engine, voice, text: t("previewText") }),
       });
       if (!res.ok) throw new Error();
       const url = URL.createObjectURL(await res.blob());
@@ -51,27 +48,22 @@ export function VoicePicker({ value, model, onChange }: Props) {
   return (
     <div className="voices">
       {voices.map((v) => (
-        <button
-          key={v}
-          type="button"
-          className={`voice ${v === value ? "selected" : ""}`}
-          onClick={() => onChange(v)}
-        >
-          <span className={`avatar-wrap ${busy === v ? "loading" : ""} ${playing === v ? "playing" : ""}`}>
-            <Avatar voice={v} />
+        <button key={v.id} type="button" className={`voice ${v.id === value ? "selected" : ""}`} onClick={() => onChange(v.id)}>
+          <span className={`avatar-wrap ${busy === v.id ? "loading" : ""} ${playing === v.id ? "playing" : ""}`}>
+            <Avatar voice={v.id} />
             <span
               role="button"
               tabIndex={0}
-              aria-label={t("preview", { voice: cap(v) })}
-              className={`play ${busy === v || playing === v ? "on" : ""}`}
-              onClick={(e) => { e.stopPropagation(); preview(v); }}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); preview(v); } }}
+              aria-label={t("preview", { voice: v.name })}
+              className={`play ${busy === v.id || playing === v.id ? "on" : ""}`}
+              onClick={(e) => { e.stopPropagation(); preview(v.id); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); preview(v.id); } }}
             >
-              {playing === v ? <PauseIcon /> : <PlayIcon />}
+              {playing === v.id ? <PauseIcon /> : <PlayIcon />}
             </span>
           </span>
-          <span className="voice-name">{cap(v)}</span>
-          <span className="voice-tag">{t(v)}</span>
+          <span className="voice-name">{v.name}</span>
+          <span className="voice-tag">{t(v.tagKey)}</span>
         </button>
       ))}
     </div>

@@ -18,6 +18,7 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       MMS_TTS_URL: http://tts-mms:8000
+      APP_SECRET: ${APP_SECRET}
     depends_on:
       tts-mms:
         condition: service_healthy

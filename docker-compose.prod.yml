@@ -1,0 +1,50 @@
+# Production stack: app + Khmer engine + Caddy for HTTPS.
+#   cp deploy/.env.prod.example .env && edit it
+#   docker compose -f docker-compose.prod.yml up -d --build
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: https://${SITE_HOST}
+    image: voice-studio:latest
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_SITE_URL: https://${SITE_HOST}
+      MMS_TTS_URL: http://tts-mms:8000
+      APP_SECRET: ${APP_SECRET}
+    depends_on:
+      tts-mms:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 700m
+
+  tts-mms:
+    build: ./services/tts-mms
+    image: voice-studio-mms:latest
+    restart: unless-stopped
+    mem_limit: 1200m
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_HOST: ${SITE_HOST}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

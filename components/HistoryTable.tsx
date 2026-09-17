@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Avatar } from "@/components/Avatar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PauseIcon, PlayIcon } from "@/components/Icons";
 import { deleteGeneration, toggleBookmark } from "@/lib/actions/library";
 import { fmtBytes, fmtDate, fmtDuration } from "@/lib/format";
@@ -13,10 +14,17 @@ const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 export function HistoryTable({ rows, emptyText }: { rows: GenerationWithUrl[]; emptyText: string }) {
   const t = useTranslations("history");
+  const tc = useTranslations("common");
   const locale = useLocale();
   const router = useRouter();
-  const [, start] = useTransition();
+  const [pending, start] = useTransition();
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<GenerationWithUrl | null>(null);
+
+  function confirmDelete() {
+    const row = toDelete; if (!row) return;
+    start(async () => { await deleteGeneration(row.id); setToDelete(null); router.refresh(); });
+  }
   const audioRef = useRef<HTMLAudioElement>(null);
 
   function play(row: GenerationWithUrl) {
@@ -67,7 +75,7 @@ export function HistoryTable({ rows, emptyText }: { rows: GenerationWithUrl[]; e
                     <svg viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 21h16" /></svg>
                   </a>
                   <button className="mini icon" type="button" aria-label={t("delete")}
-                    onClick={() => { if (confirm(t("confirmDelete"))) start(async () => { await deleteGeneration(r.id); router.refresh(); }); }}>
+                    onClick={() => setToDelete(r)}>
                     <svg viewBox="0 0 24 24"><path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></svg>
                   </button>
                 </span>
@@ -76,6 +84,17 @@ export function HistoryTable({ rows, emptyText }: { rows: GenerationWithUrl[]; e
           ))}
         </tbody>
       </table>
+      <ConfirmDialog
+        open={toDelete !== null}
+        title={t("deleteTitle")}
+        body={t("confirmDelete")}
+        confirmLabel={tc("delete")}
+        cancelLabel={tc("cancel")}
+        danger
+        busy={pending}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
 }

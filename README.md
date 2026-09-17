@@ -40,6 +40,7 @@ See [DEPLOY.md](DEPLOY.md) for the Docker image and the two AWS layouts (Fargate
 - Long scripts split on sentence boundaries and stitched into one MP3
 - History with inline playback, download, bookmark, and delete
 - Per-user monthly character quota shown in the sidebar
+- Engine settings per user: pick the self-hosted Khmer engine or bring your own OpenAI key; the Studio renders voices, models, formats and speed from each engine's manifest in `lib/engines/`
 - Light and dark theme, collapsible icon-rail sidebar
 - English and Khmer interface with a Khmer typeface
 
@@ -51,6 +52,9 @@ app/(app)/             studio, history, bookmarks, voices (requires sign-in)
 app/api/tts/route.ts   generates audio, uploads to storage, records the generation
 app/auth/callback      OAuth and email confirmation exchange
 components/            UI (AppShell, Sidebar, Studio, Player, VoicePicker, HistoryTable…)
+lib/engines/           engine manifests (voices, models, formats, credential fields) and catalog
+lib/engine-settings.ts per-user engine status and credential resolution
+lib/crypto.ts          AES-256-GCM for user API keys (needs APP_SECRET)
 lib/supabase/          browser, server, and proxy clients
 lib/generations.ts     queries with signed URLs
 lib/actions/library.ts bookmark, delete, preset server actions
@@ -58,6 +62,10 @@ i18n/ + messages/      locale cookie handling and translations
 supabase/migrations/   database schema
 proxy.ts               refreshes sessions and guards routes
 ```
+
+## Adding an engine
+
+Create `lib/engines/<name>.ts` exporting an `EngineManifest` (voices, models, formats, speed range, credential fields), add it to `ENGINES` in `lib/engines/catalog.ts`, add a provider in `lib/providers/`, and route to it in `app/api/tts/route.ts`. The Settings page and the Studio pick it up without UI changes.
 
 ## Voice avatars
 

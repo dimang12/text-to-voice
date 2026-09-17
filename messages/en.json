@@ -71,7 +71,12 @@
     "saved": "Saved",
     "editing": "Editing",
     "modelMms": "self-hosted Khmer",
-    "styleMms": "The Khmer engine has one voice and no style control"
+    "styleMms": "The Khmer engine has one voice and no style control",
+    "engine": "Engine",
+    "noEngines": "No engine is set up yet. Open Settings to add one.",
+    "engineNotReady": "Set up in Settings",
+    "openSettings": "Open Settings",
+    "styleUnavailable": "{model} does not take style instructions"
   },
   "presets": {
     "narrator": "Narrator",
@@ -103,7 +108,9 @@
     "cedar": "Grounded",
     "preview": "Preview {voice}",
     "previewText": "Hello! This is a short sample of my voice.",
-    "sokha": "Khmer · self-hosted"
+    "sokha": "Khmer · self-hosted",
+    "ready": "Ready",
+    "notSetUp": "Not set up"
   },
   "history": {
     "title": "Recent generations",
@@ -119,7 +126,8 @@
     "bookmark": "Bookmark",
     "unbookmark": "Remove bookmark",
     "delete": "Delete",
-    "confirmDelete": "Delete this clip? This cannot be undone."
+    "confirmDelete": "The audio file and its history entry will be removed. This cannot be undone.",
+    "deleteTitle": "Delete this clip?"
   },
   "voicesPage": {
     "title": "Voice library",
@@ -153,10 +161,80 @@
     "empty": "No saved scripts yet. Write something in the Studio and press Save script.",
     "open": "Open",
     "delete": "Delete",
-    "confirmDelete": "Delete this script? This cannot be undone.",
+    "confirmDelete": "The saved text and its voice settings will be removed. This cannot be undone.",
     "updated": "Updated",
     "script": "Script",
     "voice": "Voice",
-    "length": "Length"
+    "length": "Length",
+    "deleteTitle": "Delete this script?"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "engines": {
+    "mms": {
+      "name": "Khmer engine (self-hosted)",
+      "description": "Meta MMS Khmer voice running on this server. Free, no key needed."
+    },
+    "openai": {
+      "name": "OpenAI",
+      "description": "OpenAI text-to-speech with 13 English voices and style instructions. Uses your own API key and bills your OpenAI account."
+    }
+  },
+  "settings": {
+    "title": "Engines",
+    "hint": "Choose which speech engines you use and add keys for external ones",
+    "selfHosted": "self-hosted",
+    "external": "external API",
+    "yourKey": "Using your key",
+    "siteProvided": "Provided by this site",
+    "notConfigured": "Not set up",
+    "voicesCount": "{count} voices",
+    "modelsCount": "{count} models",
+    "speedRange": "Speed {min}× to {max}×",
+    "styleYes": "Style instructions",
+    "styleNo": "No style control",
+    "fields": {
+      "apiKey": "API key",
+      "baseUrl": "API base URL",
+      "baseUrlHelp": "Only for OpenAI-compatible proxies. Leave empty for OpenAI itself."
+    },
+    "optional": "optional",
+    "secretSet": "Saved. Enter a new key to replace it.",
+    "whereToGetKey": "Where to get a key",
+    "enabledInStudio": "Show in Studio",
+    "removeKey": "Remove key",
+    "removed": "Key removed",
+    "test": "Test connection",
+    "testing": "Testing…",
+    "testOk": "Connected",
+    "save": "Save",
+    "saved": "Saved",
+    "noSecret": "The server has no APP_SECRET, so API keys cannot be stored yet.",
+    "defaultsTitle": "Defaults",
+    "defaultsHint": "What the Studio opens with",
+    "engine": "Engine",
+    "model": "Model",
+    "voice": "Voice",
+    "saveDefaults": "Save defaults",
+    "statusSite": "Ready · provided by this site",
+    "statusYourKey": "Ready · using your key",
+    "statusNeedsKey": "Needs your API key",
+    "whatYouGet": "What you get",
+    "setup": "Setup",
+    "spec": {
+      "voices": "Voices",
+      "models": "Models",
+      "formats": "Formats",
+      "speed": "Speed",
+      "style": "Style control",
+      "cost": "Cost"
+    },
+    "costFree": "Free, runs on this server",
+    "costYourAccount": "Billed to your own account by the provider",
+    "nothingToSetUp": "Nothing to set up. This engine is ready for everyone.",
+    "needsKeyNote": "Paste an API key from your provider account. It is stored encrypted and never shown again.",
+    "keySavedNote": "Your key is saved. Paste a new one to replace it, or remove it to fall back."
   }
 }

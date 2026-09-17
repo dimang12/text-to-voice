@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -8,26 +9,49 @@ import { Player } from "@/components/Player";
 import { VoicePicker } from "@/components/VoicePicker";
 import { deletePreset, savePreset } from "@/lib/actions/library";
 import { saveScript } from "@/lib/actions/scripts";
+import { engineForModel } from "@/lib/engines/catalog";
+import type { EngineView } from "@/lib/engines/types";
+import type { EngineDefaults } from "@/lib/engine-settings";
 import { estimateSeconds, fmtDuration } from "@/lib/format";
-import { FORMATS, MAX_CHUNK_CHARS, MAX_TOTAL_CHARS, MODELS, MODEL_PROVIDER, voicesFor, type Format, type Model, type Voice } from "@/lib/tts";
+import type { Format } from "@/lib/tts";
 import type { GenerationWithUrl, Preset, SavedScript } from "@/lib/types";
 
-type Props = { presets: Preset[]; initial: GenerationWithUrl | null; script: SavedScript | null };
+type Props = {
+  presets: Preset[];
+  initial: GenerationWithUrl | null;
+  script: SavedScript | null;
+  engines: EngineView[];
+  defaults: EngineDefaults;
+};
 
 const BUILT_IN = ["narrator", "bedtime", "radio", "news", "casual", "whisper"] as const;
 
-export function Studio({ presets, initial, script }: Props) {
+/** Pick the engine, model and voice the Studio should open with, honouring what is actually usable. */
+function initialSelection(engines: EngineView[], defaults: EngineDefaults, seedModel?: string, seedVoice?: string) {
+  const usable = engines.filter((e) => e.status.available && e.status.enabled);
+  const fromSeed = seedModel ? engineForModel(seedModel) : undefined;
+  const wanted = (fromSeed && usable.find((e) => e.id === fromSeed.id)) || usable.find((e) => e.id === defaults.engine) || usable[0] || engines[0];
+  if (!wanted) return { engine: "", model: "", voice: "" };
+  const model = [seedModel, defaults.model].find((m) => m && wanted.models.some((x) => x.id === m)) ?? wanted.models[0].id;
+  const voice = [seedVoice, defaults.voice].find((v) => v && wanted.voices.some((x) => x.id === v)) ?? wanted.voices[0].id;
+  return { engine: wanted.id, model, voice };
+}
+
+export function Studio({ presets, initial, script, engines, defaults }: Props) {
   const t = useTranslations("studio");
   const tp = useTranslations("presets");
+  const te = useTranslations("engines");
   const locale = useLocale();
   const router = useRouter();
   const [, startTransition] = useTransition();
 
   const seed = script ?? initial;
-  const seedText = script ? script.body : initial?.script ?? "";
-  const [text, setText] = useState(seedText);
-  const [voice, setVoice] = useState<Voice>(seed?.voice ?? "alloy");
-  const [model, setModel] = useState<Model>(seed?.model ?? "gpt-4o-mini-tts");
+  const start = initialSelection(engines, defaults, seed?.model, seed?.voice);
+
+  const [text, setText] = useState(script ? script.body : initial?.script ?? "");
+  const [engineId, setEngineId] = useState(start.engine);
+  const [model, setModel] = useState(start.model);
+  const [voice, setVoice] = useState(start.voice);
   const [format, setFormat] = useState<Format>(seed?.format ?? "mp3");
   const [speed, setSpeed] = useState(seed?.speed ?? 1);
   const [instructions, setInstructions] = useState(seed?.instructions ?? tp("narratorText"));
@@ -44,25 +68,22 @@ export function Studio({ presets, initial, script }: Props) {
   const [presetName, setPresetName] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const engine = engines.find((e) => e.id === engineId);
+  const modelSpec = engine?.models.find((m) => m.id === model);
+  const voiceSpec = engine?.voices.find((v) => v.id === voice);
   const chars = text.length;
-  const over = chars > MAX_TOTAL_CHARS;
-  const chunks = Math.max(1, Math.ceil(chars / MAX_CHUNK_CHARS));
+  const maxChars = engine?.maxChars ?? 20000;
+  const over = chars > maxChars;
+  const chunks = engine?.chunkChars ? Math.max(1, Math.ceil(chars / engine.chunkChars)) : 1;
   const est = useMemo(() => estimateSeconds(text, speed), [text, speed]);
-  const canGenerate = text.trim().length > 0 && !over;
+  const canGenerate = Boolean(engine && text.trim().length > 0 && !over);
 
-  const modelLabel: Record<Model, string> = {
-    "gpt-4o-mini-tts": `gpt-4o-mini-tts · ${t("modelSteerable")}`,
-    "tts-1": `tts-1 · ${t("modelFast")}`,
-    "tts-1-hd": `tts-1-hd · ${t("modelHd")}`,
-    "mms-tts": `MMS · ${t("modelMms")}`,
-  };
-  const isMms = MODEL_PROVIDER[model] === "mms";
-
-  function changeModel(next: Model) {
-    setModel(next);
-    const allowed = voicesFor(next);
-    if (!allowed.includes(voice)) setVoice(allowed[0]);
-    if (MODEL_PROVIDER[next] === "mms" && format === "pcm") setFormat("mp3");
+  function selectEngine(next: EngineView) {
+    setEngineId(next.id);
+    if (!next.models.some((m) => m.id === model)) setModel(next.models[0].id);
+    if (!next.voices.some((v) => v.id === voice)) setVoice(next.voices[0].id);
+    if (!next.formats.includes(format)) setFormat(next.formats[0]);
+    setSpeed((s) => Math.min(next.speed.max, Math.max(next.speed.min, s)));
   }
 
   function applyPreset(key: string, value: string) {
@@ -71,14 +92,15 @@ export function Studio({ presets, initial, script }: Props) {
   }
 
   async function generate() {
+    if (!engine) return;
     setError(null);
-    if (chunks > 1 && format !== "mp3") { setError(t("longNeedsMp3", { max: MAX_CHUNK_CHARS.toLocaleString() })); return; }
+    if (engine.chunkChars && chunks > 1 && format !== "mp3") { setError(t("longNeedsMp3", { max: engine.chunkChars.toLocaleString() })); return; }
     setLoading(true);
     try {
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice, model, format, speed, instructions: instructions || undefined, locale }),
+        body: JSON.stringify({ text, engine: engine.id, voice, model, format, speed, instructions: modelSpec?.instructions && instructions ? instructions : undefined, locale }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? t("failed"));
@@ -94,19 +116,18 @@ export function Studio({ presets, initial, script }: Props) {
   function insertPause() {
     const el = textareaRef.current; if (!el) return;
     const p = el.selectionStart;
-    const next = text.slice(0, p) + " … " + text.slice(el.selectionEnd);
-    setText(next);
+    setText(text.slice(0, p) + " … " + text.slice(el.selectionEnd));
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(p + 3, p + 3); });
   }
 
   async function persistScript(asNew: boolean) {
     const title = scriptTitle.trim();
-    if (!title || !text.trim()) return;
+    if (!title || !text.trim() || !engine) return;
     setSaving(true); setError(null);
     const result = await saveScript({
       id: asNew ? undefined : scriptId ?? undefined,
-      title, text, voice, model, format, speed,
-      instructions: model === "gpt-4o-mini-tts" && instructions ? instructions : undefined,
+      title, text, engine: engine.id, voice, model, format, speed,
+      instructions: modelSpec?.instructions && instructions ? instructions : undefined,
       locale: locale === "km" ? "km" : "en",
     });
     setSaving(false);
@@ -128,16 +149,18 @@ export function Studio({ presets, initial, script }: Props) {
     startTransition(() => router.refresh());
   }
 
+  if (!engine) {
+    return (
+      <div className="pane">
+        <div className="empty">{t("noEngines")} <Link href="/settings" className="btn primary" style={{ marginLeft: 8 }}>{t("openSettings")}</Link></div>
+      </div>
+    );
+  }
+
   return (
     <div className="pane">
       <div className="editor">
-        <textarea
-          id="script"
-          ref={textareaRef}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t("placeholder")}
-        />
+        <textarea id="script" ref={textareaRef} value={text} onChange={(e) => setText(e.target.value)} placeholder={t("placeholder")} />
         <div className="editor-foot">
           <div className="tools">
             <button className="chip-btn" type="button" onClick={insertPause}>{t("insertPause")}</button>
@@ -162,91 +185,106 @@ export function Studio({ presets, initial, script }: Props) {
             )}
           </div>
           <div className="counter mono">
-            <span className={over ? "over" : ""}><b>{chars.toLocaleString()}</b> / {MAX_TOTAL_CHARS.toLocaleString()} {t("chars")}</span>
+            <span className={over ? "over" : ""}><b>{chars.toLocaleString()}</b> / {maxChars.toLocaleString()} {t("chars")}</span>
             <span>~<b>{fmtDuration(est)}</b> {t("audio")}</span>
             <span>{t("request", { count: chunks })}</span>
           </div>
         </div>
       </div>
 
+      {engines.length > 1 && (
+        <div className="section-gap">
+          <div className="row-head">
+            <h2>{t("engine")}</h2>
+            <Link href="/settings" className="hint">{t("openSettings")}</Link>
+          </div>
+          <div className="engine-select">
+            {engines.map((e) => {
+              const ok = e.status.available && e.status.enabled;
+              return (
+                <button key={e.id} type="button" className={e.id === engineId ? "on" : ""} disabled={!ok} title={ok ? undefined : t("engineNotReady")} onClick={() => selectEngine(e)}>
+                  {te(e.nameKey)}
+                  {!ok && <span className="hint">· {t("engineNotReady")}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="section-gap">
         <div className="row-head">
           <div className="inline-row">
             <h2>{t("voice")}</h2>
-            <span className="pill"><Avatar voice={voice} size="xs" />{voice[0].toUpperCase() + voice.slice(1)}</span>
+            {voiceSpec && <span className="pill"><Avatar voice={voice} size="xs" />{voiceSpec.name}</span>}
           </div>
           <span className="hint">{t("voiceHint")}</span>
         </div>
-        <VoicePicker value={voice} model={model} onChange={setVoice} />
+        <VoicePicker engine={engine.id} voices={engine.voices} value={voice} onChange={setVoice} />
       </div>
 
-      <div className="section-gap">
-        <div className="row-head">
-          <h2>{t("style")}</h2>
-          <span className="hint">{isMms ? t("styleMms") : t("styleHint")}</span>
-        </div>
-        <div className="chips">
-          {BUILT_IN.map((k) => (
-            <button key={k} type="button" className={`chip ${activePreset === k ? "on" : ""}`} onClick={() => applyPreset(k, tp(`${k}Text`))}>
-              {tp(k)}
-            </button>
-          ))}
-          {presets.map((p) => (
-            <span key={p.id} className={`chip ${activePreset === p.id ? "on" : ""}`} onClick={() => applyPreset(p.id, p.instructions)} role="button" tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") applyPreset(p.id, p.instructions); }}>
-              {p.name}
-              <button type="button" className="x" aria-label={`Delete ${p.name}`} onClick={async (e) => { e.stopPropagation(); await deletePreset(p.id); startTransition(() => router.refresh()); }}>×</button>
-            </span>
-          ))}
-        </div>
-        <div className="field">
-          <label htmlFor="instructions">{t("instructions")}</label>
-          <div className="inline-row">
-            <input
-              className="input"
-              id="instructions"
-              style={{ flex: 1, minWidth: 240 }}
-              value={instructions}
-              placeholder={t("instructionsPlaceholder")}
-              disabled={model !== "gpt-4o-mini-tts"}
-              onChange={(e) => { setInstructions(e.target.value); setActivePreset(null); }}
-            />
-            {savingPreset ? (
-              <>
-                <input className="input" id="preset-name" style={{ width: 180 }} placeholder={t("presetName")} value={presetName} onChange={(e) => setPresetName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") confirmPreset(); }} autoFocus />
-                <button className="btn primary" type="button" onClick={confirmPreset}>OK</button>
-              </>
-            ) : (
-              <button className="btn" type="button" onClick={() => setSavingPreset(true)} disabled={!instructions.trim() || model !== "gpt-4o-mini-tts"}>{t("savePreset")}</button>
-            )}
+      {engine.stylePresets && (
+        <div className="section-gap">
+          <div className="row-head">
+            <h2>{t("style")}</h2>
+            <span className="hint">{modelSpec?.instructions ? t("styleHint") : t("styleUnavailable", { model: modelSpec?.label ?? model })}</span>
+          </div>
+          <div className="chips">
+            {BUILT_IN.map((k) => (
+              <button key={k} type="button" className={`chip ${activePreset === k ? "on" : ""}`} disabled={!modelSpec?.instructions} onClick={() => applyPreset(k, tp(`${k}Text`))}>{tp(k)}</button>
+            ))}
+            {presets.map((p) => (
+              <span key={p.id} className={`chip ${activePreset === p.id ? "on" : ""}`} onClick={() => applyPreset(p.id, p.instructions)} role="button" tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter") applyPreset(p.id, p.instructions); }}>
+                {p.name}
+                <button type="button" className="x" aria-label={`Delete ${p.name}`} onClick={async (e) => { e.stopPropagation(); await deletePreset(p.id); startTransition(() => router.refresh()); }}>×</button>
+              </span>
+            ))}
+          </div>
+          <div className="field">
+            <label htmlFor="instructions">{t("instructions")}</label>
+            <div className="inline-row">
+              <input className="input" id="instructions" style={{ flex: 1, minWidth: 240 }} value={instructions} placeholder={t("instructionsPlaceholder")}
+                disabled={!modelSpec?.instructions} onChange={(e) => { setInstructions(e.target.value); setActivePreset(null); }} />
+              {savingPreset ? (
+                <>
+                  <input className="input" id="preset-name" style={{ width: 180 }} placeholder={t("presetName")} value={presetName} onChange={(e) => setPresetName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") confirmPreset(); }} autoFocus />
+                  <button className="btn primary" type="button" onClick={confirmPreset}>OK</button>
+                </>
+              ) : (
+                <button className="btn" type="button" onClick={() => setSavingPreset(true)} disabled={!instructions.trim() || !modelSpec?.instructions}>{t("savePreset")}</button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="settings">
-        <div className="field">
-          <label htmlFor="model">{t("model")}</label>
-          <div className="select">
-            <select className="input" id="model" value={model} onChange={(e) => changeModel(e.target.value as Model)}>
-              {MODELS.map((m) => <option key={m} value={m}>{modelLabel[m]}</option>)}
-            </select>
+        {engine.models.length > 1 && (
+          <div className="field">
+            <label htmlFor="model">{t("model")}</label>
+            <div className="select">
+              <select className="input" id="model" value={model} onChange={(e) => setModel(e.target.value)}>
+                {engine.models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.noteKey ? ` · ${t(m.noteKey)}` : ""}</option>)}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
         <div className="field">
           <label htmlFor="format">{t("format")}</label>
           <div className="select">
             <select className="input" id="format" value={format} onChange={(e) => setFormat(e.target.value as Format)}>
-              {FORMATS.filter((f) => !(isMms && f === "pcm")).map((f) => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+              {engine.formats.map((f) => <option key={f} value={f}>{f.toUpperCase()}</option>)}
             </select>
           </div>
         </div>
         <div className="field">
           <label htmlFor="speed">{t("speed")}</label>
           <div className="range-wrap">
-            <input type="range" id="speed" min={isMms ? 0.5 : 0.25} max={isMms ? 2 : 4} step={0.05} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} />
+            <input type="range" id="speed" min={engine.speed.min} max={engine.speed.max} step={engine.speed.step} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} />
             <output className="mono">{speed.toFixed(2)}×</output>
           </div>
-          <div className="ticks"><span>{isMms ? "0.5×" : "0.25×"}</span><span>1×</span><span>{isMms ? "2×" : "4×"}</span></div>
+          <div className="ticks"><span>{engine.speed.min}×</span><span>1×</span><span>{engine.speed.max}×</span></div>
         </div>
       </div>
 

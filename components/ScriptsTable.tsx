@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Avatar } from "@/components/Avatar";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { deleteScript } from "@/lib/actions/scripts";
 import { fmtDate } from "@/lib/format";
 import type { SavedScript } from "@/lib/types";
@@ -13,9 +14,16 @@ const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 export function ScriptsTable({ rows, emptyText }: { rows: SavedScript[]; emptyText: string }) {
   const t = useTranslations("scripts");
+  const tc = useTranslations("common");
   const locale = useLocale();
   const router = useRouter();
-  const [, start] = useTransition();
+  const [pending, start] = useTransition();
+  const [toDelete, setToDelete] = useState<SavedScript | null>(null);
+
+  function confirmDelete() {
+    const row = toDelete; if (!row) return;
+    start(async () => { await deleteScript(row.id); setToDelete(null); router.refresh(); });
+  }
 
   if (rows.length === 0) return <div className="empty">{emptyText}</div>;
 
@@ -47,7 +55,7 @@ export function ScriptsTable({ rows, emptyText }: { rows: SavedScript[]; emptyTe
                 <span className="row-actions">
                   <Link className="chip-btn" href={`/?script=${r.id}`}>{t("open")}</Link>
                   <button className="chip-btn danger" type="button"
-                    onClick={() => { if (confirm(t("confirmDelete"))) start(async () => { await deleteScript(r.id); router.refresh(); }); }}>
+                    onClick={() => setToDelete(r)}>
                     {t("delete")}
                   </button>
                 </span>
@@ -56,6 +64,17 @@ export function ScriptsTable({ rows, emptyText }: { rows: SavedScript[]; emptyTe
           ))}
         </tbody>
       </table>
+      <ConfirmDialog
+        open={toDelete !== null}
+        title={t("deleteTitle")}
+        body={t("confirmDelete")}
+        confirmLabel={tc("delete")}
+        cancelLabel={tc("cancel")}
+        danger
+        busy={pending}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
 }

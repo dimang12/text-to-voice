@@ -7,7 +7,7 @@ import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { hasSupabaseEnv } from "@/lib/env";
 import { dashboardStats } from "@/lib/generations";
 import { requireUser } from "@/lib/supabase/server";
-import { VOICES } from "@/lib/tts";
+import { VOICE_COUNT } from "@/lib/engines/catalog";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   if (!hasSupabaseEnv()) return <SetupNotice />;
@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       locale={locale}
       user={{ email: user.email ?? "", name }}
       sidebar={<Sidebar stats={stats} name={name} />}
-      tabs={<WorkspaceTabs counts={{ history: stats.generations, voices: VOICES.length, bookmarks: stats.bookmarks, scripts: stats.scripts }} />}
+      tabs={<WorkspaceTabs counts={{ history: stats.generations, voices: VOICE_COUNT, bookmarks: stats.bookmarks, scripts: stats.scripts }} />}
     >
       {children}
     </AppShell>

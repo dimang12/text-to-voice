@@ -1,23 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { chunkText } from "@/lib/chunk";
-import { getOpenAI } from "@/lib/openai";
-import { estimateSeconds } from "@/lib/format";
-import { ProviderOfflineError, synthesizeWithMms } from "@/lib/providers/mms";
-import { synthesizeWithOpenAI } from "@/lib/providers/openai";
-import { withUrls } from "@/lib/generations";
 import { hasSupabaseEnv } from "@/lib/env";
+import { getEngine } from "@/lib/engines/catalog";
+import { listEngineViews, resolveCredentials } from "@/lib/engine-settings";
+import { estimateSeconds } from "@/lib/format";
+import { withUrls } from "@/lib/generations";
+import { ProviderOfflineError, synthesizeWithMms } from "@/lib/providers/mms";
+import { synthesizeWithOpenAI, type SynthesisInput, type SynthesisResult } from "@/lib/providers/openai";
 import { requireUser } from "@/lib/supabase/server";
-import { MAX_CHUNK_CHARS, MIME_TYPES, MODEL_PROVIDER, VOICES, VOICE_PROVIDER, ttsRequestSchema } from "@/lib/tts";
+import { MAX_CHUNK_CHARS, MIME_TYPES, ttsRequestSchema } from "@/lib/tts";
 import type { Generation } from "@/lib/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
 const previewSchema = z.object({
   preview: z.literal(true),
-  voice: z.enum(VOICES),
+  engine: z.string().min(1),
+  voice: z.string().min(1),
   text: z.string().trim().min(1).max(200),
 });
+
+async function synthesize(supabase: SupabaseClient, engineId: string, input: SynthesisInput): Promise<SynthesisResult> {
+  const engine = getEngine(engineId);
+  if (!engine) throw new Error("Unknown engine");
+  if (engine.id === "mms") {
+    const lang = engine.voices.find((v) => v.id === input.voice)?.languages[0] === "km" ? "khm" : "eng";
+    return synthesizeWithMms(input, lang);
+  }
+  const creds = await resolveCredentials(supabase, engine);
+  if (!creds.apiKey) throw new ProviderOfflineError("No API key for this engine. Add one in Settings.");
+  return synthesizeWithOpenAI(input, { apiKey: creds.apiKey, baseUrl: creds.baseUrl });
+}
+
+function errorStatus(err: unknown): number {
+  if (err instanceof ProviderOfflineError) return 503;
+  if (typeof err === "object" && err && "status" in err && typeof err.status === "number") return err.status;
+  return 502;
+}
 
 export async function POST(req: NextRequest) {
   if (!hasSupabaseEnv()) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
@@ -34,18 +55,19 @@ export async function POST(req: NextRequest) {
   // Short voice preview: generated on the fly, never stored.
   const preview = previewSchema.safeParse(body);
   if (preview.success) {
+    const engine = getEngine(preview.data.engine);
+    if (!engine || !engine.voices.some((v) => v.id === preview.data.voice)) {
+      return NextResponse.json({ error: "Unknown voice" }, { status: 400 });
+    }
     try {
-      const voice = preview.data.voice;
-      const input = { text: preview.data.text, voice, format: "mp3" as const, speed: 1 };
-      const result = VOICE_PROVIDER[voice].provider === "mms"
-        ? await synthesizeWithMms({ ...input, model: "mms-tts" })
-        : await synthesizeWithOpenAI({ ...input, model: "gpt-4o-mini-tts" });
+      const result = await synthesize(supabase, engine.id, {
+        text: preview.data.text, voice: preview.data.voice, model: engine.models[0].id, format: "mp3", speed: 1,
+      });
       return new NextResponse(new Uint8Array(result.audio), {
         headers: { "Content-Type": "audio/mpeg", "Cache-Control": "private, max-age=86400" },
       });
     } catch (err) {
-      const status = err instanceof ProviderOfflineError ? 503 : 502;
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Preview failed" }, { status });
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Preview failed" }, { status: errorStatus(err) });
     }
   }
 
@@ -53,70 +75,49 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues.map((i) => i.message).join("; ") }, { status: 400 });
   }
-  const { text, voice, model, format, speed, instructions, locale } = parsed.data;
-  const provider = MODEL_PROVIDER[model];
-  if (VOICE_PROVIDER[voice].provider !== provider) {
-    return NextResponse.json({ error: `Voice ${voice} is not available on ${model}` }, { status: 400 });
-  }
-  if (provider === "openai") {
-    try {
-      getOpenAI();
-    } catch (err) {
-      return NextResponse.json({ error: err instanceof Error ? err.message : "Server misconfigured" }, { status: 500 });
-    }
-    const chunks = chunkText(text, MAX_CHUNK_CHARS);
-    if (chunks.length > 1 && format !== "mp3") {
-      return NextResponse.json({ error: `Text longer than ${MAX_CHUNK_CHARS} characters is only supported in MP3 format` }, { status: 400 });
-    }
+  const { text, engine: engineId, voice, model, format, speed, instructions, locale } = parsed.data;
+
+  // Validate the request against the engine's manifest and the user's settings.
+  const engine = getEngine(engineId);
+  if (!engine) return NextResponse.json({ error: "Unknown engine" }, { status: 400 });
+  const modelSpec = engine.models.find((m) => m.id === model);
+  if (!modelSpec) return NextResponse.json({ error: `Model ${model} is not available on ${engineId}` }, { status: 400 });
+  if (!engine.voices.some((v) => v.id === voice)) return NextResponse.json({ error: `Voice ${voice} is not available on ${engineId}` }, { status: 400 });
+  if (!engine.formats.includes(format)) return NextResponse.json({ error: `Format ${format} is not supported by ${engineId}` }, { status: 400 });
+  if (speed < engine.speed.min || speed > engine.speed.max) return NextResponse.json({ error: "Speed is out of range for this engine" }, { status: 400 });
+  if (text.length > engine.maxChars) return NextResponse.json({ error: `Text is over the ${engine.maxChars.toLocaleString()} character limit for this engine` }, { status: 400 });
+  const view = (await listEngineViews(supabase)).find((e) => e.id === engineId);
+  if (!view?.status.available || !view.status.enabled) return NextResponse.json({ error: "This engine is not set up. Open Settings to configure it." }, { status: 409 });
+  if (engine.id === "openai" && chunkText(text, MAX_CHUNK_CHARS).length > 1 && format !== "mp3") {
+    return NextResponse.json({ error: `Text longer than ${MAX_CHUNK_CHARS} characters is only supported in MP3 format` }, { status: 400 });
   }
 
   // Quota check.
   const { data: stats } = await supabase.rpc("dashboard_stats").single();
   const used = Number((stats as { month_chars?: number } | null)?.month_chars ?? 0);
   const quota = Number((stats as { quota?: number } | null)?.quota ?? 100000);
-  if (used + text.length > quota) {
-    return NextResponse.json({ error: "Monthly character quota reached" }, { status: 429 });
-  }
+  if (used + text.length > quota) return NextResponse.json({ error: "Monthly character quota reached" }, { status: 429 });
 
-  let audio: Buffer;
-  let chunkCount = 1;
-  let measuredSeconds: number | undefined;
+  let result: SynthesisResult;
   try {
-    const input = { text, voice, model, format, speed, instructions };
-    const result = provider === "mms" ? await synthesizeWithMms(input) : await synthesizeWithOpenAI(input);
-    audio = result.audio;
-    chunkCount = result.chunks;
-    measuredSeconds = result.durationSeconds;
+    result = await synthesize(supabase, engine.id, {
+      text, voice, model, format, speed, instructions: modelSpec.instructions ? instructions : undefined,
+    });
   } catch (err) {
-    const status = err instanceof ProviderOfflineError
-      ? 503
-      : typeof err === "object" && err && "status" in err && typeof err.status === "number" ? err.status : 502;
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Speech generation failed" }, { status });
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Speech generation failed" }, { status: errorStatus(err) });
   }
 
   const id = crypto.randomUUID();
   const storagePath = `${user.id}/${id}.${format}`;
-  const { error: uploadError } = await supabase.storage
-    .from("audio")
-    .upload(storagePath, audio, { contentType: MIME_TYPES[format], upsert: false });
-  if (uploadError) {
-    return NextResponse.json({ error: `Could not save audio: ${uploadError.message}` }, { status: 500 });
-  }
+  const { error: uploadError } = await supabase.storage.from("audio").upload(storagePath, result.audio, { contentType: MIME_TYPES[format], upsert: false });
+  if (uploadError) return NextResponse.json({ error: `Could not save audio: ${uploadError.message}` }, { status: 500 });
 
   const row = {
-    id,
-    user_id: user.id,
-    script: text,
-    voice,
-    model,
-    format,
-    speed,
-    instructions: model === "gpt-4o-mini-tts" ? instructions ?? null : null,
-    locale,
-    char_count: text.length,
-    duration_seconds: measuredSeconds ?? Math.round(estimateSeconds(text, speed) * 100) / 100,
-    byte_size: audio.byteLength,
-    storage_path: storagePath,
+    id, user_id: user.id, script: text, engine: engine.id, voice, model, format, speed,
+    instructions: modelSpec.instructions ? instructions ?? null : null,
+    locale, char_count: text.length,
+    duration_seconds: result.durationSeconds ?? Math.round(estimateSeconds(text, speed) * 100) / 100,
+    byte_size: result.audio.byteLength, storage_path: storagePath,
   };
   const { data: inserted, error: insertError } = await supabase.from("generations").insert(row).select("*").single();
   if (insertError || !inserted) {
@@ -126,5 +127,5 @@ export async function POST(req: NextRequest) {
   await supabase.rpc("add_usage", { p_chars: text.length });
 
   const [generation] = await withUrls(supabase, [inserted as Generation], new Set());
-  return NextResponse.json({ generation, chunks: chunkCount });
+  return NextResponse.json({ generation, chunks: result.chunks });
 }

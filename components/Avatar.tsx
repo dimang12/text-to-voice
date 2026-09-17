@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { VOICES, type Voice } from "@/lib/tts";
+import { findVoice } from "@/lib/engines/catalog";
 
 const HAIR = [
   "M14 30c2-12 12-18 22-18s20 6 22 18c-4-6-12-9-22-9s-18 3-22 9z",
@@ -13,14 +13,17 @@ const SKIN = ["#f6d3b9", "#e8b48f", "#c98e62", "#8d5a3b"];
 const HAIR_COLOR = ["#2b2140", "#5a3a2a", "#e7c27a", "#3f4a8a"];
 const SHIRT = ["#8f7cff", "#ff7ad9", "#6ee7ff", "#ffb86b"];
 
-type Props = { voice: Voice; size?: "lg" | "sm" | "xs" };
+type Props = { voice: string; size?: "lg" | "sm" | "xs" };
 
 // Remembers which voices have real artwork so each PNG is probed once per page load.
-const imageCache = new Map<Voice, boolean>();
+const imageCache = new Map<string, boolean>();
 
-/** Placeholder cartoon face. Drop a PNG at /public/avatars/<voice>.png to replace it. */
+/** Placeholder cartoon face over the voice's gradient. Drop a PNG at /public/avatars/<voice>.png to replace it. */
 export function Avatar({ voice, size = "lg" }: Props) {
   const [hasImage, setHasImage] = useState(() => imageCache.get(voice) === true);
+  const found = findVoice(voice);
+  const i = found?.index ?? 0;
+  const glasses = i % 5 === 2;
 
   useEffect(() => {
     if (imageCache.has(voice)) return;
@@ -29,10 +32,9 @@ export function Avatar({ voice, size = "lg" }: Props) {
     probe.onerror = () => { imageCache.set(voice, false); };
     probe.src = `/avatars/${voice}.png`;
   }, [voice]);
-  const i = VOICES.indexOf(voice);
-  const glasses = i % 5 === 2;
+
   return (
-    <div className={`avatar g-${voice} ${size === "lg" ? "" : size}`}>
+    <div className={`avatar ${size === "lg" ? "" : size}`} style={{ backgroundImage: found?.voice.gradient ?? "linear-gradient(135deg, #5b7cff, #2b2f6b)" }}>
       {hasImage && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={`/avatars/${voice}.png`} alt="" />

@@ -1,11 +1,12 @@
-import type { Format, Model, Voice } from "@/lib/tts";
+import type { Format } from "@/lib/tts";
 
 export type Generation = {
   id: string;
   user_id: string;
   script: string;
-  voice: Voice;
-  model: Model;
+  engine: string;
+  voice: string;
+  model: string;
   format: Format;
   speed: number;
   instructions: string | null;
@@ -33,8 +34,8 @@ export type SavedScript = {
   id: string;
   title: string;
   body: string;
-  voice: Voice;
-  model: Model;
+  voice: string;
+  model: string;
   format: Format;
   speed: number;
   instructions: string | null;

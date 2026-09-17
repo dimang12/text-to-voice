@@ -1,11 +1,11 @@
+import OpenAI from "openai";
 import { chunkText } from "@/lib/chunk";
-import { getOpenAI } from "@/lib/openai";
-import { MAX_CHUNK_CHARS, type Format, type Model, type Voice } from "@/lib/tts";
+import { MAX_CHUNK_CHARS, type Format } from "@/lib/tts";
 
 export type SynthesisInput = {
   text: string;
-  voice: Voice;
-  model: Model;
+  voice: string;
+  model: string;
   format: Format;
   speed: number;
   instructions?: string;
@@ -13,8 +13,10 @@ export type SynthesisInput = {
 
 export type SynthesisResult = { audio: Buffer; chunks: number; durationSeconds?: number };
 
-export async function synthesizeWithOpenAI(input: SynthesisInput): Promise<SynthesisResult> {
-  const openai = getOpenAI();
+export type OpenAICredentials = { apiKey: string; baseUrl?: string };
+
+export async function synthesizeWithOpenAI(input: SynthesisInput, creds: OpenAICredentials): Promise<SynthesisResult> {
+  const openai = new OpenAI({ apiKey: creds.apiKey, baseURL: creds.baseUrl || undefined });
   const chunks = chunkText(input.text, MAX_CHUNK_CHARS);
   const buffers: Buffer[] = [];
   for (const text of chunks) {
@@ -24,9 +26,15 @@ export async function synthesizeWithOpenAI(input: SynthesisInput): Promise<Synth
       input: text,
       response_format: input.format,
       speed: input.speed,
-      ...(input.model === "gpt-4o-mini-tts" && input.instructions ? { instructions: input.instructions } : {}),
+      ...(input.instructions ? { instructions: input.instructions } : {}),
     });
     buffers.push(Buffer.from(await res.arrayBuffer()));
   }
   return { audio: Buffer.concat(buffers), chunks: chunks.length };
+}
+
+/** Cheap connectivity check used by the Settings page. */
+export async function testOpenAI(creds: OpenAICredentials): Promise<void> {
+  const openai = new OpenAI({ apiKey: creds.apiKey, baseURL: creds.baseUrl || undefined });
+  await openai.models.list();
 }

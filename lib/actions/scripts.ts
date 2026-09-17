@@ -19,6 +19,7 @@ export async function saveScript(input: ScriptInput): Promise<{ id: string } | {
   const parsed = scriptSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues.map((i) => i.message).join("; ") };
   const { id, title, text, voice, model, format, speed, instructions, locale } = parsed.data;
+  void parsed.data.engine;
   const row = { title, body: text, voice, model, format, speed, instructions: instructions || null, locale, updated_at: new Date().toISOString() };
 
   if (id) {

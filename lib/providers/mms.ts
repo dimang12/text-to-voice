@@ -1,4 +1,3 @@
-import { VOICE_PROVIDER } from "@/lib/tts";
 import type { SynthesisInput, SynthesisResult } from "@/lib/providers/openai";
 
 export class ProviderOfflineError extends Error {}
@@ -8,10 +7,9 @@ export function hasMmsEnv(): boolean {
 }
 
 /** Calls the self-hosted MMS service in services/tts-mms. It chunks and joins audio itself. */
-export async function synthesizeWithMms(input: SynthesisInput): Promise<SynthesisResult> {
+export async function synthesizeWithMms(input: SynthesisInput, lang: string): Promise<SynthesisResult> {
   const base = process.env.MMS_TTS_URL;
   if (!base) throw new ProviderOfflineError("Self-hosted Khmer engine is not configured");
-  const lang = VOICE_PROVIDER[input.voice].lang ?? "khm";
   if (input.format === "pcm") throw new Error("PCM output is not supported by the Khmer engine");
 
   let res: Response;
@@ -32,4 +30,11 @@ export async function synthesizeWithMms(input: SynthesisInput): Promise<Synthesi
   const audio = Buffer.from(await res.arrayBuffer());
   const duration = Number(res.headers.get("X-Duration-Seconds"));
   return { audio, chunks: 1, durationSeconds: Number.isFinite(duration) ? duration : undefined };
+}
+
+export async function testMms(): Promise<void> {
+  const base = process.env.MMS_TTS_URL;
+  if (!base) throw new ProviderOfflineError("Self-hosted Khmer engine is not configured");
+  const res = await fetch(`${base.replace(/\/$/, "")}/health`, { signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) throw new ProviderOfflineError("Self-hosted Khmer engine is offline");
 }

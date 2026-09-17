@@ -79,5 +79,6 @@ Good for a first launch or when data must stay in your account.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | build and runtime | safe to expose; RLS protects data |
 | `NEXT_PUBLIC_SITE_URL` | server | used for OAuth and email redirect links |
 | `MMS_TTS_URL` | server only | URL of the tts-mms container; unset hides the Khmer engine |
+| `APP_SECRET` | server only | random string used to encrypt user API keys; changing it invalidates stored keys |
 
 Because the `NEXT_PUBLIC_*` values are baked in at build time, rebuild the image when they change.
