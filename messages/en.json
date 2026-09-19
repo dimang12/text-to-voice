@@ -14,7 +14,7 @@
     "scripts": "Saved scripts"
   },
   "stats": {
-    "generations": "Generations",
+    "generations": "Clips",
     "audioMade": "Audio made",
     "voices": "Voices",
     "presets": "Presets",
@@ -28,7 +28,7 @@
     "language": "Language"
   },
   "tabs": {
-    "studio": "Studio",
+    "studio": "Create",
     "history": "History",
     "voices": "Voices",
     "bookmarked": "Bookmarked",
@@ -58,7 +58,7 @@
     "format": "Format",
     "speed": "Speed",
     "download": "Download",
-    "generate": "Generate",
+    "generate": "Generate voice",
     "generating": "Generating…",
     "nothingYet": "Nothing generated yet",
     "tooLong": "Text is over the {max} character limit",

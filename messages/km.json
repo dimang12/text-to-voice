@@ -14,7 +14,7 @@
     "scripts": "អត្ថបទដែលបានរក្សាទុក"
   },
   "stats": {
-    "generations": "ការបង្កើត",
+    "generations": "ឃ្លីប",
     "audioMade": "សំឡេងបានបង្កើត",
     "voices": "សំឡេង",
     "presets": "គំរូរចនាប័ទ្ម",
@@ -28,7 +28,7 @@
     "language": "ភាសា"
   },
   "tabs": {
-    "studio": "ស្ទូឌីយោ",
+    "studio": "បង្កើត",
     "history": "ប្រវត្តិ",
     "voices": "សំឡេង",
     "bookmarked": "បានចំណាំ",
@@ -58,7 +58,7 @@
     "format": "ទ្រង់ទ្រាយ",
     "speed": "ល្បឿន",
     "download": "ទាញយក",
-    "generate": "បង្កើត",
+    "generate": "បង្កើតសំឡេង",
     "generating": "កំពុងបង្កើត…",
     "nothingYet": "មិនទាន់បានបង្កើតអ្វីនៅឡើយ",
     "tooLong": "អត្ថបទលើសដែនកំណត់ {max} តួអក្សរ",
