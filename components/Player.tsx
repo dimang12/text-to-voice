@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PauseIcon, PlayIcon } from "@/components/Icons";
+import { createProjectFromGeneration } from "@/lib/actions/projects";
 import { fmtBytes, fmtDuration } from "@/lib/format";
 import type { GenerationWithUrl } from "@/lib/types";
 
@@ -140,6 +141,14 @@ export function Player({ generation, loading, canGenerate, onGenerate }: Props) 
         </div>
       </div>
       <div className="actions">
+        {generation && (
+          <form action={createProjectFromGeneration.bind(null, generation.id)}>
+            <button className="btn" type="submit" title={t("openInStudio")}>
+              <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+              {t("openInStudio")}
+            </button>
+          </form>
+        )}
         <a className="btn" href={generation?.download_url ?? "#"} aria-disabled={!generation?.download_url} download>
           <svg viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 21h16" /></svg>
           {t("download")}

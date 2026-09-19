@@ -36,6 +36,10 @@ export async function Sidebar({ stats, name }: { stats: DashboardStats; name: st
 
       <div className="section-label">{t("nav.quickLinks")}</div>
       <nav className="nav">
+        <Link href="/studio" title={t("nav.studio")}>
+          <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /><rect x="6" y="9" width="7" height="6" rx="1" fill="currentColor" stroke="none" opacity=".35" /></svg>
+          <span>{t("nav.studio")}</span>
+        </Link>
         <Link href="/scripts" title={t("nav.scripts")}>
           <svg viewBox="0 0 24 24"><path d="M6 3h9l5 5v13H6z" /><path d="M14 3v6h6" /><path d="M9 13h6M9 17h6" /></svg>
           <span>{t("nav.scripts")}</span>

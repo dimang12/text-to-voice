@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PauseIcon, PlayIcon } from "@/components/Icons";
 import { deleteGeneration, toggleBookmark } from "@/lib/actions/library";
+import { createProjectFromGeneration } from "@/lib/actions/projects";
 import { fmtBytes, fmtDate, fmtDuration } from "@/lib/format";
 import type { GenerationWithUrl } from "@/lib/types";
 
@@ -71,6 +72,11 @@ export function HistoryTable({ rows, emptyText }: { rows: GenerationWithUrl[]; e
                     onClick={() => start(async () => { await toggleBookmark(r.id); router.refresh(); })}>
                     <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z" /></svg>
                   </button>
+                  <form action={createProjectFromGeneration.bind(null, r.id)} style={{ display: "inline" }}>
+                    <button className="mini icon" type="submit" aria-label={t("openInStudio")} title={t("openInStudio")}>
+                      <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+                    </button>
+                  </form>
                   <a className="mini icon" href={r.download_url ?? "#"} aria-label={t("play")} download>
                     <svg viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 21h16" /></svg>
                   </a>

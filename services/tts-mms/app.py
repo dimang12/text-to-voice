@@ -7,14 +7,17 @@ License note: MMS models are released under CC BY-NC 4.0 (non-commercial).
 """
 
 import io
+import json
 import os
 import re
 import subprocess
+import tempfile
 import threading
+from typing import List
 
 import numpy as np
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from transformers import AutoTokenizer, VitsModel
@@ -128,3 +131,76 @@ def synth(req: SynthRequest):
     data = encode(audio, sr, req.format)
     seconds = round(len(audio) / sr, 2)
     return Response(content=data, media_type=MIME[req.format], headers={"X-Duration-Seconds": str(seconds)})
+
+
+# ---------------------------------------------------------------------------
+# Timeline rendering: cut, shift, fade, mix uploaded clips into one file.
+# POST /render  multipart: edl=<json>, format=mp3, files[]=<audio>...
+# edl = {"clips":[{"file":0,"offset":1.5,"duration":3.0,"start":0.0,"gain":1.0,"fadeIn":0.1,"fadeOut":0.2}, ...]}
+# ---------------------------------------------------------------------------
+RENDER_RATE = 44100
+
+
+@app.post("/render")
+async def render(edl: str = Form(...), format: str = Form("mp3"), files: List[UploadFile] = File(...)):
+    if format not in FFMPEG_ARGS:
+        raise HTTPException(status_code=400, detail="Unsupported format")
+    try:
+        spec = json.loads(edl)
+        clips = spec["clips"]
+        assert isinstance(clips, list) and clips
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid edit list")
+    if len(clips) > 500:
+        raise HTTPException(status_code=413, detail="Too many clips")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = []
+        for i, up in enumerate(files):
+            p = os.path.join(tmp, f"src{i}")
+            with open(p, "wb") as fh:
+                fh.write(await up.read())
+            paths.append(p)
+
+        parts = []
+        labels = []
+        total = 0.0
+        for n, c in enumerate(clips):
+            fi = int(c["file"])
+            if fi < 0 or fi >= len(paths):
+                raise HTTPException(status_code=400, detail=f"Clip {n} references a missing file")
+            off = max(0.0, float(c.get("offset", 0)))
+            dur = max(0.01, float(c["duration"]))
+            start = max(0.0, float(c.get("start", 0)))
+            gain = min(4.0, max(0.0, float(c.get("gain", 1))))
+            fi_s = min(dur, max(0.0, float(c.get("fadeIn", 0))))
+            fo_s = min(dur, max(0.0, float(c.get("fadeOut", 0))))
+            chain = [
+                f"atrim=start={off:.4f}:end={off + dur:.4f}",
+                "asetpts=PTS-STARTPTS",
+                f"aresample={RENDER_RATE}",
+                "aformat=channel_layouts=mono",
+                f"volume={gain:.4f}",
+            ]
+            if fi_s > 0:
+                chain.append(f"afade=t=in:st=0:d={fi_s:.4f}")
+            if fo_s > 0:
+                chain.append(f"afade=t=out:st={max(0.0, dur - fo_s):.4f}:d={fo_s:.4f}")
+            chain.append(f"adelay={int(start * 1000)}:all=1")
+            parts.append(f"[{fi}:a]" + ",".join(chain) + f"[c{n}]")
+            labels.append(f"[c{n}]")
+            total = max(total, start + dur)
+
+        mix = "".join(labels) + f"amix=inputs={len(labels)}:normalize=0:dropout_transition=0,atrim=end={total:.4f}[out]"
+        graph = ";".join(parts + [mix])
+        out = os.path.join(tmp, f"out.{format}")
+        cmd = ["ffmpeg", "-loglevel", "error", "-y"]
+        for p in paths:
+            cmd += ["-i", p]
+        cmd += ["-filter_complex", graph, "-map", "[out]", *FFMPEG_ARGS[format], out]
+        proc = subprocess.run(cmd, capture_output=True, check=False)
+        if proc.returncode != 0:
+            raise HTTPException(status_code=500, detail=proc.stderr.decode(errors="ignore")[:400])
+        with open(out, "rb") as fh:
+            data = fh.read()
+    return Response(content=data, media_type=MIME[format], headers={"X-Duration-Seconds": f"{total:.2f}"})

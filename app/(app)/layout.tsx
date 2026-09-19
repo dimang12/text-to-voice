@@ -14,10 +14,11 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const { supabase, user } = await requireUser();
   if (!user) redirect("/login");
 
-  const [locale, stats, { data: profile }] = await Promise.all([
+  const [locale, stats, { data: profile }, { count: projectCount }] = await Promise.all([
     getLocale(),
     dashboardStats(supabase),
     supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+    supabase.from("projects").select("id", { count: "exact", head: true }),
   ]);
   const meta = user.user_metadata ?? {};
   const name = (profile?.display_name as string | null) || meta.display_name || meta.full_name || meta.name || user.email?.split("@")[0] || "";
@@ -27,7 +28,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       locale={locale}
       user={{ email: user.email ?? "", name }}
       sidebar={<Sidebar stats={stats} name={name} />}
-      tabs={<WorkspaceTabs counts={{ history: stats.generations, voices: VOICE_COUNT, bookmarks: stats.bookmarks, scripts: stats.scripts }} />}
+      tabs={<WorkspaceTabs counts={{ history: stats.generations, voices: VOICE_COUNT, bookmarks: stats.bookmarks, scripts: stats.scripts, projects: projectCount ?? 0 }} />}
     >
       {children}
     </AppShell>

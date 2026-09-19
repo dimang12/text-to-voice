@@ -40,6 +40,7 @@ See [DEPLOY.md](DEPLOY.md) for the Docker image and the two AWS layouts (Fargate
 - Long scripts split on sentence boundaries and stitched into one MP3
 - History with inline playback, download, bookmark, and delete
 - Per-user monthly character quota shown in the sidebar
+- Studio: a non-destructive timeline editor. Add clips from History, drag to move, drag edges to trim, split at the playhead, set volume and fades, undo/redo, autosave; Export renders the mix through the media service and saves it to History
 - Engine settings per user: pick the self-hosted Khmer engine or bring your own OpenAI key; the Studio renders voices, models, formats and speed from each engine's manifest in `lib/engines/`
 - Light and dark theme, collapsible icon-rail sidebar
 - English and Khmer interface with a Khmer typeface
@@ -50,6 +51,8 @@ See [DEPLOY.md](DEPLOY.md) for the Docker image and the two AWS layouts (Fargate
 app/(auth)/            login, signup, server actions
 app/(app)/             studio, history, bookmarks, voices (requires sign-in)
 app/api/tts/route.ts   generates audio, uploads to storage, records the generation
+app/api/render/route.ts renders a Studio timeline via the media service (ffmpeg) and stores the result
+components/editor/     Studio editor: Web Audio playback engine and timeline UI
 app/auth/callback      OAuth and email confirmation exchange
 components/            UI (AppShell, Sidebar, Studio, Player, VoicePicker, HistoryTable…)
 lib/engines/           engine manifests (voices, models, formats, credential fields) and catalog

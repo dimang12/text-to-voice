@@ -52,3 +52,36 @@ export type DashboardStats = {
   month_chars: number;
   quota: number;
 };
+
+/** One piece of a source generation placed on the Studio timeline. Times are seconds. */
+export type Clip = {
+  id: string;
+  sourceId: string;
+  start: number;
+  offset: number;
+  duration: number;
+  gain: number;
+  fadeIn: number;
+  fadeOut: number;
+};
+
+export type Track = { id: string; name: string; clips: Clip[] };
+export type Timeline = { tracks: Track[] };
+
+export type Project = {
+  id: string;
+  title: string;
+  timeline: Timeline;
+  duration_seconds: number;
+  updated_at: string;
+  created_at: string;
+};
+
+/** A generation usable as editor source material. */
+export type ClipSource = {
+  id: string;
+  label: string;
+  voice: string;
+  duration: number;
+  url: string | null;
+};

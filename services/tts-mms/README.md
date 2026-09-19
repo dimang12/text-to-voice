@@ -11,6 +11,10 @@ curl -X POST localhost:8020/synthesize -H 'Content-Type: application/json' \
 
 Set `MMS_TTS_URL=http://localhost:8020` in `.env.local` so the app can reach it. Add more languages with `MMS_LANGS=khm,eng` at build and run time.
 
+## Render endpoint
+
+`POST /render` takes a multipart form with `edl` (JSON edit list), `format`, and the source `files`, and returns one mixed file. The app uses it for Studio exports, so this container doubles as the media service. Set `MMS_TTS_URL` for both.
+
 ## License
 
 The MMS models are released by Meta under **CC BY-NC 4.0**, which does not permit commercial use. Use this service for evaluation, internal, or non-commercial deployments. For a paid product use a commercially licensed Khmer voice (for example Azure Speech) or train your own with Piper on a permissively licensed dataset such as OpenSLR 42.
